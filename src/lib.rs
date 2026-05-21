@@ -24,7 +24,7 @@ struct OnNotification {
     sender: Arc<dyn Sender>,
 }
 use crate::prefs::config;
-use crate::prefs::{AppState, Channel};
+use crate::prefs::AppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -52,7 +52,7 @@ impl Handler for OnNotification {
             Ok(r) => r.unwrap(),
             Err(e) => {
                 eprintln!("Error in reading preferences: {e}");
-                return ();
+                return ;
             }
         };
         self.sender.send(address, subject, message);
@@ -63,7 +63,7 @@ impl Module {
     pub async fn new(
         pool: Pool<Sqlite>,
         sender: Arc<dyn Sender>,
-        validator: OrphanWrapper<Arc<dyn Validate<Identity>>>,
+        _validator: OrphanWrapper<Arc<dyn Validate<Identity>>>,
         es: event_stream::OrphanWrapper<Arc<dyn EventStream>>,
     ) -> Self {
         let state = Arc::new(AppState::new(pool.clone()));

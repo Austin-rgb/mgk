@@ -1,6 +1,5 @@
 use crate::prefs::handlers::*;
-use actix_web::{middleware::from_fn, web};
-use actixutils::middleware::authority;
+use actix_web::web;
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg
         // Preferences

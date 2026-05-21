@@ -1,10 +1,8 @@
-use super::channel::Channel;
 use super::db::Preferences;
 use actix_web::web;
 use actix_web::{HttpResponse, Responder};
 use actixutils::Identity;
 use serde::Deserialize;
-use std::sync::Arc;
 use tracing::error; // Added for logging
 
 use sqlx::{Pool, Sqlite};
