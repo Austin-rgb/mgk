@@ -2,9 +2,9 @@ use actix_web::web;
 use actix_web::web::ServiceConfig;
 use actixutils::{Identity, OrphanWrapper, Validate};
 use async_trait::async_trait;
+use event_stream::EventMetaData;
 use event_stream::{EventStream, Handler};
-use serde::{Deserialize, Serialize};
-use serde_json::from_str;
+use serde_json::{Value, from_str};
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 mod prefs;
@@ -17,32 +17,20 @@ pub struct Module {
     sender: Arc<dyn Sender>,
     state: Arc<AppState>,
 }
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
+
 struct OnNotification {
     state: Arc<AppState>,
     sender: Arc<dyn Sender>,
 }
-use crate::prefs::config;
 use crate::prefs::AppState;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Event {
-    pub event_id: Uuid,
-    pub event_version: String,
-    pub occurred_at: DateTime<Utc>,
-    pub producer: String,
-    pub correlation_id: Option<Uuid>,
-    pub trace_id: Option<Uuid>,
-    pub user_id: Option<Uuid>,
-    pub session_id: Option<Uuid>,
-}
+use crate::prefs::config;
 
 #[async_trait]
 impl Handler for OnNotification {
     async fn handle(&self, subject: String, message: Vec<u8>) {
         let message = String::from_utf8(message).unwrap();
-        let event: Event = from_str(&message).unwrap();
+        let emd = from_str::<Value>(&message).unwrap();
+        let event: EventMetaData = from_str(&emd["metadata"].as_str().unwrap()).unwrap();
         let address = match self
             .state
             .preferences
@@ -52,7 +40,7 @@ impl Handler for OnNotification {
             Ok(r) => r.unwrap(),
             Err(e) => {
                 eprintln!("Error in reading preferences: {e}");
-                return ;
+                return;
             }
         };
         self.sender.send(address, subject, message);
