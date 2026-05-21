@@ -1,0 +1,101 @@
+use actix_web::web;
+use actix_web::web::ServiceConfig;
+use actixutils::{Identity, OrphanWrapper, Validate};
+use async_trait::async_trait;
+use event_stream::{EventStream, Handler};
+use serde::{Deserialize, Serialize};
+use serde_json::from_str;
+use sqlx::{Pool, Sqlite};
+use std::sync::Arc;
+mod prefs;
+
+pub trait Sender: Send + Sync {
+    fn send(&self, address: String, subject: String, message: String);
+}
+#[derive(Clone)]
+pub struct Module {
+    sender: Arc<dyn Sender>,
+    state: Arc<AppState>,
+}
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
+struct OnNotification {
+    state: Arc<AppState>,
+    sender: Arc<dyn Sender>,
+}
+use crate::prefs::config;
+use crate::prefs::{AppState, Channel};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Event {
+    pub event_id: Uuid,
+    pub event_version: String,
+    pub occurred_at: DateTime<Utc>,
+    pub producer: String,
+    pub correlation_id: Option<Uuid>,
+    pub trace_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    pub session_id: Option<Uuid>,
+}
+
+#[async_trait]
+impl Handler for OnNotification {
+    async fn handle(&self, subject: String, message: Vec<u8>) {
+        let message = String::from_utf8(message).unwrap();
+        let event: Event = from_str(&message).unwrap();
+        let address = match self
+            .state
+            .preferences
+            .get(&event.user_id.unwrap().to_string(), &subject)
+            .await
+        {
+            Ok(r) => r.unwrap(),
+            Err(e) => {
+                eprintln!("Error in reading preferences: {e}");
+                return ();
+            }
+        };
+        self.sender.send(address, subject, message);
+    }
+}
+
+impl Module {
+    pub async fn new(
+        pool: Pool<Sqlite>,
+        sender: Arc<dyn Sender>,
+        validator: OrphanWrapper<Arc<dyn Validate<Identity>>>,
+        es: event_stream::OrphanWrapper<Arc<dyn EventStream>>,
+    ) -> Self {
+        let state = Arc::new(AppState::new(pool.clone()));
+        let module = Self {
+            sender,
+            state: state.clone(),
+        };
+        module.subscribe(es.0, state).await;
+        module
+    }
+
+    pub fn config(&self, cfg: &mut ServiceConfig, namespace: &str) {
+        cfg.service(
+            web::scope(namespace)
+                .app_data(web::Data::from(self.state.clone()))
+                .configure(config),
+        );
+    }
+    pub async fn subscribe(&self, es: Arc<dyn EventStream>, state: Arc<AppState>) {
+        match es
+            .clone()
+            .subscribe(
+                "notification".to_string(),
+                Arc::new(OnNotification {
+                    sender: self.sender.clone(),
+                    state,
+                }),
+            )
+            .await
+        {
+            Ok(_) => (),
+            Err(e) => eprintln!("Error in subscribing to event stream: {e}"),
+        };
+    }
+}
