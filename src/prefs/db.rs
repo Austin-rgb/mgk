@@ -10,6 +10,7 @@ use sqlx::{Pool, Sqlite};
 pub struct Preferences {
     db: Pool<Sqlite>,
     cache: Cache<(String, String), String>, // (user, subject) -> Channel
+    pending: Cache<(String, String), String>,
 }
 
 impl Preferences {
@@ -17,6 +18,7 @@ impl Preferences {
         Self {
             db,
             cache: Cache::new(1000),
+            pending: Cache::new(100),
         }
     }
 
@@ -60,5 +62,12 @@ impl Preferences {
             return Ok(Some(channel));
         }
         Ok(None)
+    }
+
+    pub async fn set_pending(&self, user: &str, subject: &str, addr: &str) -> Result<()> {
+        self.pending
+            .insert((user.into(), subject.into()), addr.into())
+            .await;
+        Ok(())
     }
 }

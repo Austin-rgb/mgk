@@ -14,3 +14,4 @@ moka = { version = "0.12.15", features = ["future"] }
 anyhow = "1.0.102"
 actixutils = { path = "../actixutils" }
 event-stream = { path = "../event-stream" }
+validator = { version = "0.20.0", features = ["derive"] }

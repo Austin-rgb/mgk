@@ -3,9 +3,9 @@ use actix_web::web;
 use actix_web::{HttpResponse, Responder};
 use actixutils::Identity;
 use serde::Deserialize;
-use tracing::error; // Added for logging
-
 use sqlx::{Pool, Sqlite};
+use tracing::error; // Added for logging
+use validator::{Validate, ValidationError};
 #[derive(Clone)]
 pub struct AppState {
     pub preferences: Preferences,
@@ -22,8 +22,9 @@ impl AppState {
 // Preferences
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Validate)]
 pub struct PreferenceSetRequest {
+    #[validate(length(max = 32))]
     pub subject: String,
     pub address: String,
 }
