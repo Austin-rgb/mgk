@@ -2,7 +2,7 @@ use anyhow::Result;
 use moka::future::Cache;
 use sqlx::{Pool, Sqlite};
 
-use rand::{Rng, RngExt};
+use rand::RngExt;
 
 fn gen_otp() -> u32 {
     let mut rng = rand::rng();
