@@ -15,3 +15,4 @@ anyhow = "1.0.102"
 actixutils = { path = "../actixutils" }
 event-stream = { path = "../event-stream" }
 validator = { version = "0.20.0", features = ["derive"] }
+rand = "0.10.1"

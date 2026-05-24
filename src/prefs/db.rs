@@ -2,6 +2,13 @@ use anyhow::Result;
 use moka::future::Cache;
 use sqlx::{Pool, Sqlite};
 
+use rand::{Rng, RngExt};
+
+fn gen_otp() -> u32 {
+    let mut rng = rand::rng();
+    rng.random_range(100000..999999)
+}
+
 // ---------------------------------------------------------------------------
 // Preferences
 // ---------------------------------------------------------------------------
@@ -10,7 +17,7 @@ use sqlx::{Pool, Sqlite};
 pub struct Preferences {
     db: Pool<Sqlite>,
     cache: Cache<(String, String), String>, // (user, subject) -> Channel
-    pending: Cache<(String, String), String>,
+    pending: Cache<(String, u32), (String, String)>,
 }
 
 impl Preferences {
@@ -22,7 +29,11 @@ impl Preferences {
         }
     }
 
-    pub async fn set(&self, user: &str, subject: &str, channel: String) -> Result<()> {
+    pub async fn confirm(&self, user: &str, otp: u32) -> Result<()> {
+        let (subject, channel) = match self.pending.remove(&(user.to_string(), otp)).await {
+            Some(r) => r,
+            None => return Err(anyhow::anyhow!("Token not found")),
+        };
         sqlx::query(
             "INSERT INTO preferences (user, subject, channel)
              VALUES (?, ?, ?)
@@ -30,7 +41,7 @@ impl Preferences {
              DO UPDATE SET channel = excluded.channel",
         )
         .bind(user)
-        .bind(subject)
+        .bind(subject.clone())
         .bind(channel.clone())
         .execute(&self.db)
         .await?;
@@ -64,10 +75,11 @@ impl Preferences {
         Ok(None)
     }
 
-    pub async fn set_pending(&self, user: &str, subject: &str, addr: &str) -> Result<()> {
+    pub async fn set(&self, user: &str, subject: &str, addr: &str) -> Result<u32> {
+        let otp = gen_otp();
         self.pending
-            .insert((user.into(), subject.into()), addr.into())
+            .insert((user.into(), otp), (subject.into(), addr.into()))
             .await;
-        Ok(())
+        Ok(otp)
     }
 }

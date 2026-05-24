@@ -8,21 +8,21 @@ use serde_json::{Value, from_str};
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 mod prefs;
-
+use crate::prefs::db::Preferences;
 pub trait Sender: Send + Sync {
     fn send(&self, address: String, subject: String, message: String);
 }
 #[derive(Clone)]
 pub struct Module {
     sender: Arc<dyn Sender>,
-    state: Arc<AppState>,
+    state: Arc<Preferences>,
 }
 
 struct OnNotification {
-    state: Arc<AppState>,
+    state: Arc<Preferences>,
     sender: Arc<dyn Sender>,
 }
-use crate::prefs::AppState;
+
 use crate::prefs::config;
 
 #[async_trait]
@@ -33,7 +33,6 @@ impl Handler for OnNotification {
         let event: EventMetaData = from_str(&emd["metadata"].as_str().unwrap()).unwrap();
         let address = match self
             .state
-            .preferences
             .get(&event.user_id.unwrap().to_string(), &subject)
             .await
         {
@@ -54,7 +53,7 @@ impl Module {
         _validator: OrphanWrapper<Arc<dyn Validate<Identity>>>,
         es: event_stream::OrphanWrapper<Arc<dyn EventStream>>,
     ) -> Self {
-        let state = Arc::new(AppState::new(pool.clone()));
+        let state = Arc::new(Preferences::new(pool.clone()));
         let module = Self {
             sender,
             state: state.clone(),
@@ -70,7 +69,7 @@ impl Module {
                 .configure(config),
         );
     }
-    pub async fn subscribe(&self, es: Arc<dyn EventStream>, state: Arc<AppState>) {
+    pub async fn subscribe(&self, es: Arc<dyn EventStream>, state: Arc<Preferences>) {
         match es
             .clone()
             .subscribe(
