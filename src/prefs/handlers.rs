@@ -5,7 +5,7 @@ use actixutils::Identity;
 use serde::Deserialize;
 use sqlx::{Pool, Sqlite};
 use tracing::error; // Added for logging
-use validator::{Validate, ValidationError};
+use validator::Validate;
 #[derive(Clone)]
 pub struct AppState {
     pub preferences: Preferences,
