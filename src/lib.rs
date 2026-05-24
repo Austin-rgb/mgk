@@ -1,6 +1,6 @@
 use actix_web::web;
 use actix_web::web::ServiceConfig;
-use actixutils::{Identity, OrphanWrapper, Validate};
+use actixutils::{Identity, Validate};
 use async_trait::async_trait;
 use event_stream::EventMetaData;
 use event_stream::{EventStream, Handler};
@@ -50,15 +50,15 @@ impl Module {
     pub async fn new(
         pool: Pool<Sqlite>,
         sender: Arc<dyn Sender>,
-        _validator: OrphanWrapper<Arc<dyn Validate<Identity>>>,
-        es: event_stream::OrphanWrapper<Arc<dyn EventStream>>,
+        _validator:Arc<dyn Validate<Identity>>,
+        es: Arc<dyn EventStream>,
     ) -> Self {
         let state = Arc::new(Preferences::new(pool.clone()));
         let module = Self {
             sender,
             state: state.clone(),
         };
-        module.subscribe(es.0, state).await;
+        module.subscribe(es, state).await;
         module
     }
 
@@ -73,7 +73,7 @@ impl Module {
         match es
             .clone()
             .subscribe(
-                "notification".to_string(),
+                ">".to_string(),
                 Arc::new(OnNotification {
                     sender: self.sender.clone(),
                     state,
