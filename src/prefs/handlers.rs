@@ -6,18 +6,10 @@ use actix_web::{HttpResponse, Responder};
 use actixutils::Identity;
 use serde::Deserialize;
 use tracing::error; // Added for logging
-use validator::Validate;
 
 // ---------------------------------------------------------------------------
 // Preferences
 // ---------------------------------------------------------------------------
-
-#[derive(Deserialize, Validate)]
-pub struct PreferenceSetRequest {
-    #[validate(length(max = 32))]
-    pub subject: String,
-    pub address: String,
-}
 
 #[derive(Deserialize)]
 pub struct PreferenceGetQuery {
