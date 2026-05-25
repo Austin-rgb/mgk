@@ -20,11 +20,6 @@ pub struct Preference {
     pub address: String,
 }
 
-#[derive(Deserialize)]
-pub struct PreferenceGetQuery {
-    pub subject: String,
-}
-
 #[derive(Deserialize, Validate)]
 pub struct Token {
     #[validate(range(min = 100000, max = 999999))]
@@ -52,6 +47,9 @@ impl Preferences {
     }
 
     pub async fn confirm(&self, user: &str, otp: &Token) -> Result<()> {
+        if let Err(e) = otp.validate() {
+            return Err(anyhow::anyhow!("invalid token: {e}"));
+        }
         let (subject, channel) = match self.pending.remove(&(user.to_string(), otp.token)).await {
             Some(r) => r,
             None => return Err(anyhow::anyhow!("Token not found")),
@@ -98,6 +96,9 @@ impl Preferences {
     }
 
     pub async fn set(&self, user: &str, pref: Preference) -> Result<u32> {
+        if let Err(e) = pref.validate() {
+            return Err(anyhow::anyhow!("Invalid data: {e}"));
+        }
         let otp = gen_otp();
         self.pending
             .insert((user.into(), otp), (pref.subject, pref.address))
