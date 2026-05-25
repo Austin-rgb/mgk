@@ -84,6 +84,7 @@ impl Module {
         cfg.service(
             web::scope(namespace)
                 .app_data(web::Data::from(self.state.clone()))
+                .app_data(web::Data::from(self.sender.clone()))
                 .configure(config),
         );
     }

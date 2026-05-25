@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::Sender;
 use crate::prefs::db::{Preference, Token};
 
 use super::db::Preferences;
@@ -19,11 +22,19 @@ pub struct PreferenceGetQuery {
 pub async fn set_preference(
     id: Identity,
     state: web::Data<Preferences>,
+    sender: web::Data<Arc<dyn Sender>>,
     body: web::Json<Preference>,
 ) -> impl Responder {
     let pref = body.into_inner();
     match state.set(&id.sub.to_string(), pref.clone()).await {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(token) => {
+            sender.send(
+                pref.address,
+                "confirm address".to_owned(),
+                token.to_string(),
+            );
+            HttpResponse::Ok().finish()
+        }
         Err(e) => {
             error!(
                 error = %e,
