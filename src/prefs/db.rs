@@ -1,12 +1,34 @@
 use anyhow::Result;
 use moka::future::Cache;
-use sqlx::{Pool, Sqlite};
-
 use rand::RngExt;
+use serde::Deserialize;
+use sqlx::{Pool, Sqlite};
+use validator::Validate;
 
 fn gen_otp() -> u32 {
     let mut rng = rand::rng();
     rng.random_range(100000..999999)
+}
+
+// Models
+
+#[derive(Deserialize, Validate, Clone)]
+pub struct Preference {
+    #[validate(length(max = 64))]
+    pub subject: String,
+    #[validate(length(max = 64))]
+    pub address: String,
+}
+
+#[derive(Deserialize)]
+pub struct PreferenceGetQuery {
+    pub subject: String,
+}
+
+#[derive(Deserialize, Validate)]
+pub struct Token {
+    #[validate(range(min = 100000, max = 999999))]
+    pub token: u32,
 }
 
 // ---------------------------------------------------------------------------
@@ -29,8 +51,8 @@ impl Preferences {
         }
     }
 
-    pub async fn confirm(&self, user: &str, otp: u32) -> Result<()> {
-        let (subject, channel) = match self.pending.remove(&(user.to_string(), otp)).await {
+    pub async fn confirm(&self, user: &str, otp: &Token) -> Result<()> {
+        let (subject, channel) = match self.pending.remove(&(user.to_string(), otp.token)).await {
             Some(r) => r,
             None => return Err(anyhow::anyhow!("Token not found")),
         };
@@ -75,10 +97,10 @@ impl Preferences {
         Ok(None)
     }
 
-    pub async fn set(&self, user: &str, subject: &str, addr: &str) -> Result<u32> {
+    pub async fn set(&self, user: &str, pref: Preference) -> Result<u32> {
         let otp = gen_otp();
         self.pending
-            .insert((user.into(), otp), (subject.into(), addr.into()))
+            .insert((user.into(), otp), (pref.subject, pref.address))
             .await;
         Ok(otp)
     }

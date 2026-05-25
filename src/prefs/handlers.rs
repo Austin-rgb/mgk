@@ -1,3 +1,5 @@
+use crate::prefs::db::{Preference, Token};
+
 use super::db::Preferences;
 use actix_web::web;
 use actix_web::{HttpResponse, Responder};
@@ -22,27 +24,19 @@ pub struct PreferenceGetQuery {
     pub subject: String,
 }
 
-#[derive(Deserialize, Validate)]
-pub struct Token {
-    #[validate(range(min = 100000, max = 999999))]
-    pub token: u32,
-}
-
 pub async fn set_preference(
     id: Identity,
     state: web::Data<Preferences>,
-    body: web::Json<PreferenceSetRequest>,
+    body: web::Json<Preference>,
 ) -> impl Responder {
-    match state
-        .set(&id.sub.to_string(), &body.subject, &body.address)
-        .await
-    {
+    let pref = body.into_inner();
+    match state.set(&id.sub.to_string(), pref.clone()).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             error!(
                 error = %e,
                 user = %id.sub.to_string(),
-                subject = %body.subject,
+                subject = %pref.subject,
                 "Failed to set user preference"
             );
             HttpResponse::InternalServerError().body(e.to_string())
@@ -55,13 +49,13 @@ pub async fn confirm_preference(
     state: web::Data<Preferences>,
     body: web::Json<Token>,
 ) -> impl Responder {
-    match state.confirm(&id.sub.to_string(), body.token).await {
+    let token = body.into_inner();
+    match state.confirm(&id.sub.to_string(), &token).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             error!(
                 error = %e,
                 user = %id.sub.to_string(),
-                token = %body.token,
                 "Failed to confirm user preference"
             );
             HttpResponse::InternalServerError().body(e.to_string())
