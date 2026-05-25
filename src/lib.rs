@@ -1,8 +1,7 @@
 use actix_web::web;
 use actix_web::web::ServiceConfig;
-use actixutils::{Identity, Validate};
 use async_trait::async_trait;
-use event_stream::EventMetaData;
+use event_stream::{EventMetaData, OrphanWrapper};
 use event_stream::{EventStream, Handler};
 use serde_json::{Value, from_str};
 use sqlx::{Pool, Sqlite};
@@ -11,6 +10,14 @@ mod prefs;
 use crate::prefs::db::Preferences;
 pub trait Sender: Send + Sync {
     fn send(&self, address: String, subject: String, message: String);
+}
+
+struct ConsoleSender;
+
+impl Sender for ConsoleSender {
+    fn send(&self, address: String, subject: String, message: String) {
+        println!("message sent to {address} subject: {subject}, message: {message}")
+    }
 }
 #[derive(Clone)]
 pub struct Module {
@@ -47,19 +54,20 @@ impl Handler for OnNotification {
 }
 
 impl Module {
-    pub async fn new(
-        pool: Pool<Sqlite>,
-        sender: Arc<dyn Sender>,
-        _validator:Arc<dyn Validate<Identity>>,
-        es: Arc<dyn EventStream>,
-    ) -> Self {
+    pub async fn new(pool: Pool<Sqlite>, es: OrphanWrapper<Arc<dyn EventStream>>) -> Self {
+        let sender: Arc<dyn Sender> = Arc::new(ConsoleSender {});
         let state = Arc::new(Preferences::new(pool.clone()));
         let module = Self {
             sender,
             state: state.clone(),
         };
-        module.subscribe(es, state).await;
+        module.subscribe(es.0, state).await;
         module
+    }
+
+    pub fn with_sender(mut self, sender: Arc<dyn Sender>) -> Self {
+        self.sender = sender;
+        self
     }
 
     pub fn config(&self, cfg: &mut ServiceConfig, namespace: &str) {
