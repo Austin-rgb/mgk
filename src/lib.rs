@@ -37,7 +37,7 @@ impl Handler for OnNotification {
     async fn handle(&self, subject: String, message: Vec<u8>) {
         let message = String::from_utf8(message).unwrap();
         let emd = from_str::<Value>(&message).unwrap();
-        let event: EventMetaData = from_str(&emd["metadata"].as_str().unwrap()).unwrap();
+        let event: EventMetaData = from_str(emd["metadata"].as_str().unwrap()).unwrap();
         let address = match self
             .state
             .get(&event.user_id.unwrap().to_string(), &subject)
