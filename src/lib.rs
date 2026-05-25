@@ -3,7 +3,7 @@ use actix_web::web::ServiceConfig;
 use async_trait::async_trait;
 use event_stream::{EventMetaData, OrphanWrapper};
 use event_stream::{EventStream, Handler};
-use serde_json::{Value, from_str};
+use serde_json::{Value, from_value, from_str};
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 mod prefs;
@@ -36,8 +36,9 @@ use crate::prefs::config;
 impl Handler for OnNotification {
     async fn handle(&self, subject: String, message: Vec<u8>) {
         let message = String::from_utf8(message).unwrap();
+println!("received message: {message}");
         let emd = from_str::<Value>(&message).unwrap();
-        let event: EventMetaData = from_str(emd["metadata"].as_str().unwrap()).unwrap();
+        let event: EventMetaData = from_value(emd["metadata"].clone()).unwrap();
         let address = match self
             .state
             .get(&event.user_id.unwrap().to_string(), &subject)

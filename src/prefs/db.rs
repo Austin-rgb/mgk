@@ -54,15 +54,15 @@ impl Preferences {
             Some(r) => r,
             None => return Err(anyhow::anyhow!("Token not found")),
         };
-        sqlx::query(
-            "INSERT INTO preferences (user, subject, channel)
+        sqlx::query!(
+            "INSERT INTO preferences (user, subject, address)
              VALUES (?, ?, ?)
-             ON CONFLICT(user, subject)
-             DO UPDATE SET channel = excluded.channel",
-        )
-        .bind(user)
-        .bind(subject.clone())
-        .bind(channel.clone())
+             ON CONFLICT(address, subject)
+             DO UPDATE SET address = excluded.address",
+        
+        user,
+        subject,
+        channel)
         .execute(&self.db)
         .await?;
 
@@ -81,7 +81,7 @@ impl Preferences {
         }
 
         let result = sqlx::query_scalar::<_, String>(
-            "SELECT channel FROM preferences WHERE user = ? AND subject = ?",
+            "SELECT address FROM preferences WHERE user = ? AND subject = ?",
         )
         .bind(user)
         .bind(subject)
