@@ -45,11 +45,14 @@ impl Handler for OnNotification {
                 return ();
             }
         };
-        let address = match self
-            .state
-            .get(&event.user_id.unwrap().to_string(), &subject)
-            .await
-        {
+        let user_id = match event.user_id {
+            Some(r) => r.to_string(),
+            None => {
+                eprintln!("No user id in Event Metadata");
+                return;
+            }
+        };
+        let address = match self.state.get(&user_id, &subject).await {
             Ok(r) => match r {
                 Some(x) => x,
                 None => return (),
@@ -84,7 +87,7 @@ impl Module {
         cfg.service(
             web::scope(namespace)
                 .app_data(web::Data::from(self.state.clone()))
-                .app_data(web::Data::from(self.sender.clone()))
+                .app_data(web::Data::new(self.sender.clone()))
                 .configure(config),
         );
     }
