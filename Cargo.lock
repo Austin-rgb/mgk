@@ -937,8 +937,6 @@ name = "ferrumec"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
- "libsigners",
  "serde",
  "sqlx",
 ]
@@ -1721,17 +1719,6 @@ dependencies = [
  "libc",
  "plain",
  "redox_syscall 0.7.5",
-]
-
-[[package]]
-name = "libsigners"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "jsonwebtoken",
- "serde",
- "uuid",
 ]
 
 [[package]]

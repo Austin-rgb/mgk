@@ -1,3 +1,4 @@
+
 use std::sync::Arc;
 
 use crate::Sender;
@@ -6,7 +7,7 @@ use crate::prefs::db::{Preference, Token};
 use super::db::Preferences;
 use actix_web::web;
 use actix_web::{HttpResponse, Responder};
-use actixutils::Identity;
+use actixutils::{Identity, Auth};
 use serde::Deserialize;
 use tracing::error; // Added for logging
 
@@ -20,7 +21,7 @@ pub struct PreferenceGetQuery {
 }
 
 pub async fn set_preference(
-    id: Identity,
+    Auth(id): Auth<Identity>,
     state: web::Data<Preferences>,
     sender: web::Data<Arc<dyn Sender>>,
     body: web::Json<Preference>,
@@ -48,7 +49,7 @@ pub async fn set_preference(
 }
 
 pub async fn confirm_preference(
-    id: Identity,
+    Auth(id): Auth<Identity>,
     state: web::Data<Preferences>,
     body: web::Json<Token>,
 ) -> impl Responder {
@@ -67,7 +68,7 @@ pub async fn confirm_preference(
 }
 
 pub async fn get_preference(
-    id: Identity,
+    Auth(id): Auth<Identity>,
     state: web::Data<Preferences>,
     query: web::Query<PreferenceGetQuery>,
 ) -> impl Responder {
