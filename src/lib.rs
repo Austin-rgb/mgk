@@ -1,21 +1,24 @@
 use actix_web::web;
 use actix_web::web::ServiceConfig;
 use async_trait::async_trait;
-use event_stream::{EventMetaData, OrphanWrapper};
+use event_stream::{EventMetaData};
 use event_stream::{EventStream, Handler};
 use serde_json::{Value, from_str, from_value};
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 mod prefs;
 use crate::prefs::db::Preferences;
+
+#[async_trait::async_trait]
 pub trait Sender: Send + Sync {
-    fn send(&self, address: String, subject: String, message: String);
+    async fn send(&self, address: String, subject: String, message: String);
 }
 
 struct ConsoleSender;
 
+#[async_trait::async_trait]
 impl Sender for ConsoleSender {
-    fn send(&self, address: String, subject: String, message: String) {
+    async fn send(&self, address: String, subject: String, message: String) {
         println!("message sent to {address} subject: {subject}, message: {message}")
     }
 }
@@ -62,19 +65,19 @@ impl Handler for OnNotification {
                 return;
             }
         };
-        self.sender.send(address, subject, message);
+        self.sender.send(address, subject, message).await;
     }
 }
 
 impl Module {
-    pub async fn new(pool: Pool<Sqlite>, es: OrphanWrapper<Arc<dyn EventStream>>) -> Self {
+    pub async fn new(pool: Pool<Sqlite>, es: Arc<dyn EventStream>) -> Self {
         let sender: Arc<dyn Sender> = Arc::new(ConsoleSender {});
         let state = Arc::new(Preferences::new(pool.clone()));
         let module = Self {
             sender,
             state: state.clone(),
         };
-        module.subscribe(es.0, state).await;
+        module.subscribe(es, state).await;
         module
     }
 

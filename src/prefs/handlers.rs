@@ -1,4 +1,3 @@
-
 use std::sync::Arc;
 
 use crate::Sender;
@@ -7,7 +6,7 @@ use crate::prefs::db::{Preference, Token};
 use super::db::Preferences;
 use actix_web::web;
 use actix_web::{HttpResponse, Responder};
-use actixutils::{Identity, Auth};
+use actixutils::{Auth, Identity};
 use serde::Deserialize;
 use tracing::error; // Added for logging
 
@@ -29,11 +28,13 @@ pub async fn set_preference(
     let pref = body.into_inner();
     match state.set(&id.sub.to_string(), pref.clone()).await {
         Ok(token) => {
-            sender.send(
-                pref.address,
-                "confirm address".to_owned(),
-                token.to_string(),
-            );
+            let _ = sender
+                .send(
+                    pref.address,
+                    "confirm address".to_owned(),
+                    token.to_string(),
+                )
+                .await;
             HttpResponse::Ok().finish()
         }
         Err(e) => {
