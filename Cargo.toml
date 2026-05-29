@@ -1,5 +1,6 @@
 [package]
-name = "mgk"
+name = "channel-notifier"
+description = "A pluggable channel framework for notification services"
 version = "0.1.0"
 edition = "2024"
 
