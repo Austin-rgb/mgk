@@ -1,6 +1,6 @@
 [package]
-name = "channel-notifier"
-description = "A pluggable channel framework for notification services"
+name = "mgk"
+description = "Messaging Gate Keeper, A pluggable channel framework for notification services"
 version = "0.1.0"
 edition = "2024"
 
