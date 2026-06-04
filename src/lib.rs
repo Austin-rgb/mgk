@@ -1,7 +1,7 @@
 use actix_web::web;
 use actix_web::web::ServiceConfig;
 use async_trait::async_trait;
-use event_stream::{EventMetaData};
+use event_stream::EventMetaData;
 use event_stream::{EventStream, Handler};
 use serde_json::{Value, from_str, from_value};
 use sqlx::{Pool, Sqlite};
@@ -70,9 +70,9 @@ impl Handler for OnNotification {
 }
 
 impl Module {
-    pub async fn new(pool: Pool<Sqlite>, es: Arc<dyn EventStream>) -> Self {
+    pub async fn new(pool: Pool<Sqlite>, es: Arc<dyn EventStream>, subjects: Vec<String>) -> Self {
         let sender: Arc<dyn Sender> = Arc::new(ConsoleSender {});
-        let state = Arc::new(Preferences::new(pool.clone()));
+        let state = Arc::new(Preferences::new(pool.clone(), subjects));
         let module = Self {
             sender,
             state: state.clone(),

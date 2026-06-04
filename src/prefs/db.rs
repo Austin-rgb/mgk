@@ -3,6 +3,7 @@ use moka::future::Cache;
 use rand::RngExt;
 use serde::Deserialize;
 use sqlx::{Pool, Sqlite};
+use std::collections::HashSet;
 use validator::Validate;
 
 fn gen_otp() -> u32 {
@@ -35,14 +36,16 @@ pub struct Preferences {
     db: Pool<Sqlite>,
     cache: Cache<(String, String), String>, // (user, subject) -> Channel
     pending: Cache<(String, u32), (String, String)>,
+    allowed_subjects: HashSet<String>,
 }
 
 impl Preferences {
-    pub fn new(db: Pool<Sqlite>) -> Self {
+    pub fn new(db: Pool<Sqlite>, subjects: Vec<String>) -> Self {
         Self {
             db,
             cache: Cache::new(1000),
             pending: Cache::new(100),
+            allowed_subjects: subjects.into_iter().collect(),
         }
     }
 
@@ -59,10 +62,10 @@ impl Preferences {
              VALUES (?, ?, ?)
              ON CONFLICT(address, subject)
              DO UPDATE SET address = excluded.address",
-        
-        user,
-        subject,
-        channel)
+            user,
+            subject,
+            channel
+        )
         .execute(&self.db)
         .await?;
 
@@ -98,6 +101,9 @@ impl Preferences {
     pub async fn set(&self, user: &str, pref: Preference) -> Result<u32> {
         if let Err(e) = pref.validate() {
             return Err(anyhow::anyhow!("Invalid data: {e}"));
+        }
+        if !self.allowed_subjects.contains(&pref.subject) {
+            return Err(anyhow::anyhow!("Subject not allowed"));
         }
         let otp = gen_otp();
         self.pending
