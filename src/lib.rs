@@ -12,16 +12,9 @@ use crate::prefs::db::Preferences;
 #[async_trait::async_trait]
 pub trait Sender: Send + Sync {
     async fn send(&self, address: String, subject: String, message: String);
+    fn get_name(&self) -> String;
 }
 
-struct ConsoleSender;
-
-#[async_trait::async_trait]
-impl Sender for ConsoleSender {
-    async fn send(&self, address: String, subject: String, message: String) {
-        println!("message sent to {address} subject: {subject}, message: {message}")
-    }
-}
 #[derive(Clone)]
 pub struct Module {
     sender: Arc<dyn Sender>,
@@ -70,20 +63,20 @@ impl Handler for OnNotification {
 }
 
 impl Module {
-    pub async fn new(pool: Pool<Sqlite>, es: Arc<dyn EventStream>, subjects: Vec<String>) -> Self {
-        let sender: Arc<dyn Sender> = Arc::new(ConsoleSender {});
-        let state = Arc::new(Preferences::new(pool.clone(), subjects));
+    pub async fn new(
+        pool: Pool<Sqlite>,
+        es: Arc<dyn EventStream>,
+        sender: Arc<dyn Sender>,
+        subjects: Vec<String>,
+    ) -> Self {
+        let state = Arc::new(Preferences::new(pool.clone(), subjects, sender.get_name()).await);
+
         let module = Self {
             sender,
             state: state.clone(),
         };
         module.subscribe(es, state).await;
         module
-    }
-
-    pub fn with_sender(mut self, sender: Arc<dyn Sender>) -> Self {
-        self.sender = sender;
-        self
     }
 
     pub fn config(&self, cfg: &mut ServiceConfig, namespace: &str) {

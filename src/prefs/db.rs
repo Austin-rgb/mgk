@@ -37,12 +37,18 @@ pub struct Preferences {
     cache: Cache<(String, String), String>, // (user, subject) -> Channel
     pending: Cache<(String, u32), (String, String)>,
     allowed_subjects: HashSet<String>,
+    table_name: String,
 }
 
 impl Preferences {
-    pub fn new(db: Pool<Sqlite>, subjects: Vec<String>) -> Self {
+    pub async fn new(db: Pool<Sqlite>, subjects: Vec<String>, sender_name: String) -> Self {
+        let table_name = format!("{}_preferences", sender_name);
+        init_table(&db, &table_name)
+            .await
+            .expect("could not initialize table");
         Self {
             db,
+            table_name,
             cache: Cache::new(1000),
             pending: Cache::new(100),
             allowed_subjects: subjects.into_iter().collect(),
@@ -57,15 +63,16 @@ impl Preferences {
             Some(r) => r,
             None => return Err(anyhow::anyhow!("Token not found")),
         };
-        sqlx::query!(
-            "INSERT INTO preferences (user, subject, address)
+        sqlx::query(&format!(
+            "INSERT INTO {} (user, subject, address)
              VALUES (?, ?, ?)
              ON CONFLICT(address, subject)
              DO UPDATE SET address = excluded.address",
-            user,
-            subject,
-            channel
-        )
+            self.table_name
+        ))
+        .bind(&user)
+        .bind(&subject)
+        .bind(&channel)
         .execute(&self.db)
         .await?;
 
@@ -83,9 +90,10 @@ impl Preferences {
             return Ok(Some(cached));
         }
 
-        let result = sqlx::query_scalar::<_, String>(
-            "SELECT address FROM preferences WHERE user = ? AND subject = ?",
-        )
+        let result = sqlx::query_scalar::<_, String>(&format!(
+            "SELECT address FROM {} WHERE user = ? AND subject = ?",
+            self.table_name
+        ))
         .bind(user)
         .bind(subject)
         .fetch_optional(&self.db)
@@ -110,5 +118,25 @@ impl Preferences {
             .insert((user.into(), otp), (pref.subject, pref.address))
             .await;
         Ok(otp)
+    }
+}
+
+async fn init_table(pool: &Pool<Sqlite>, table_name: &String) -> Result<(), sqlx::Error> {
+    if let Err(e) = sqlx::query(&format!(
+        "CREATE TABLE IF NOT EXISTS {} (
+user TEXT,
+subject TEXT,
+address TEXT,
+UNIQUE(user, subject)
+)
+",
+        table_name
+    ))
+    .execute(pool)
+    .await
+    {
+        Err(e)
+    } else {
+        Ok(())
     }
 }
