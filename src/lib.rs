@@ -69,7 +69,7 @@ impl Module {
         sender: Arc<dyn Sender>,
         subjects: Vec<String>,
     ) -> Self {
-        let state = Arc::new(Preferences::new(pool.clone(), subjects, sender.get_name()).await);
+        let state = Arc::new(Preferences::new(pool.clone(), es.clone(), subjects, sender.get_name()).await);
 
         let module = Self {
             sender,

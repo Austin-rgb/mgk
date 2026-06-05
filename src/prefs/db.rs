@@ -1,9 +1,10 @@
 use anyhow::Result;
+use event_stream::{Event, EventMetaData, EventStream, Publishable};
 use moka::future::Cache;
 use rand::RngExt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 use validator::Validate;
 
 fn gen_otp() -> u32 {
@@ -38,16 +39,23 @@ pub struct Preferences {
     pending: Cache<(String, u32), (String, String)>,
     allowed_subjects: HashSet<String>,
     table_name: String,
+    es: Arc<dyn EventStream>,
 }
 
 impl Preferences {
-    pub async fn new(db: Pool<Sqlite>, subjects: Vec<String>, sender_name: String) -> Self {
+    pub async fn new(
+        db: Pool<Sqlite>,
+        es: Arc<dyn EventStream>,
+        subjects: Vec<String>,
+        sender_name: String,
+    ) -> Self {
         let table_name = format!("{}_preferences", sender_name);
         init_table(&db, &table_name)
             .await
             .expect("could not initialize table");
         Self {
             db,
+            es,
             table_name,
             cache: Cache::new(1000),
             pending: Cache::new(100),
@@ -77,9 +85,16 @@ impl Preferences {
         .await?;
 
         self.cache
-            .insert((user.to_string(), subject.to_string()), channel)
+            .insert((user.to_string(), subject.to_string()), channel.clone())
             .await;
-
+        let event = ChannelConfirmed {
+            user: user.to_string(),
+            subject,
+            address: channel,
+        };
+        let emd = EventMetaData::new("mgk");
+        let event = Event::new(emd, event);
+       let _ =  event.publish(self.es.clone()).await;
         Ok(())
     }
 
@@ -139,4 +154,15 @@ UNIQUE(user, subject)
     } else {
         Ok(())
     }
+}
+
+#[derive(Serialize)]
+struct ChannelConfirmed {
+    user: String,
+    subject: String,
+    address: String,
+}
+
+impl Publishable for ChannelConfirmed {
+    const SUBJECT: &'static str = "contact.channel.confirmed";
 }
