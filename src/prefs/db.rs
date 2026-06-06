@@ -74,7 +74,7 @@ impl Preferences {
         sqlx::query(&format!(
             "INSERT INTO {} (user, subject, address)
              VALUES (?, ?, ?)
-             ON CONFLICT(address, subject)
+             ON CONFLICT(user, subject)
              DO UPDATE SET address = excluded.address",
             self.table_name
         ))
