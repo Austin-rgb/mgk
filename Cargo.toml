@@ -13,7 +13,7 @@ tracing = "0.1.44"
 serde = "1.0.228"
 moka = { version = "0.12.15", features = ["future"] }
 anyhow = "1.0.102"
-actixutils = { path = "../actixutils" }
-event-stream = { path = "../event-stream" }
+actixutils = { git = "https://github.com/Austin-rgb/actixutils" }
+event-stream = { git = "https://github.com/Austin-rgb/event-stream" }
 validator = { version = "0.20.0", features = ["derive"] }
 rand = "0.10.1"
